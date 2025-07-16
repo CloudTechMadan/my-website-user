@@ -41,9 +41,12 @@ function capture() {
       if (!uploadResp.ok) throw new Error('Upload failed');
 
       // Call markAttendance with S3 key
+      const token = getIdToken(); // From auth.js
       const attendanceResp = await fetch(attendanceApi, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json',
+                 'Authorization': `Bearer ${token}`
+                 },
         body: JSON.stringify({ s3Key: fileName })
       });
 
