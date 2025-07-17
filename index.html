@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Face Attendance - Redirecting...</title>
   <script>
-    // Parse query string for Cognito auth code
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get("code");
 
-    // Replace with your Cognito settings
     const clientId = "4vu39fr2kccnb6kdk67v8ejsak";
     const redirectUri = "https://cloudtechmadan.github.io/my-website-user/index.html";
-    const tokenEndpoint = "https://faceattendanceuserpool.auth.us-east-1.amazoncognito.com/oauth2/token";
+    const cognitoDomain = "https://face-attendance-admin-auth.auth.us-east-1.amazoncognito.com";
+
+    const tokenEndpoint = `${cognitoDomain}/oauth2/token`;
 
     if (code) {
       const body = new URLSearchParams({
@@ -32,12 +32,9 @@
       .then((res) => res.json())
       .then((data) => {
         if (data.access_token) {
-          // Store tokens securely
           localStorage.setItem("access_token", data.access_token);
           localStorage.setItem("id_token", data.id_token);
           localStorage.setItem("refresh_token", data.refresh_token);
-
-          // Redirect to dashboard
           window.location.href = "dashboard.html";
         } else {
           alert("Authentication failed. Please try again.");
@@ -49,9 +46,7 @@
         alert("Error during login.");
       });
     } else {
-      // Not authorized? Redirect to Cognito hosted UI
-      const loginUrl =
-        `https://faceattendanceuserpool.auth.us-east-1.amazoncognito.com/login?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}`;
+      const loginUrl = `${cognitoDomain}/login?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}`;
       window.location.href = loginUrl;
     }
   </script>
