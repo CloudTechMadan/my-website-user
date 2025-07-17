@@ -1,4 +1,4 @@
-const BASE_API = "https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/prod";
+const BASE_API = "https://jprbceq0dk.execute-api.us-east-1.amazonaws.com";
 const markAttendanceUrl = `${BASE_API}/markAttendance`;
 const getHistoryUrl = `${BASE_API}/getAttendanceHistory`;
 const submitCorrectionUrl = `${BASE_API}/submitCorrectionRequest`;
