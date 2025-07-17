@@ -1,162 +1,109 @@
-const BASE_API = "https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/prod";
-const markAttendanceUrl = `${BASE_API}/mark-attendance`;
-const getHistoryUrl = `${BASE_API}/get-attendance-history`;
-const submitCorrectionUrl = `${BASE_API}/submit-correction-request`;
-const getPresignedUrl = `${BASE_API}/get-presigned-url`;
+// dashboard.js
 
-const token = localStorage.getItem("access_token");
+// AWS Cognito login token retrieval
+const token = localStorage.getItem("accessToken");
+
 if (!token) {
-  alert("You must log in first.");
+  alert("You are not logged in. Redirecting to login page.");
   window.location.href = "index.html";
 }
 
-// Webcam Setup
-const video = document.getElementById("webcam");
-const captureBtn = document.getElementById("captureBtn");
-const previewImg = document.getElementById("capturedPreview");
-const statusText = document.getElementById("attendanceStatus");
-const captureTime = document.getElementById("captureTime");
-const previewSection = document.getElementById("previewSection");
+const status = document.getElementById("attendanceStatus");
+const captureButton = document.getElementById("captureButton");
+const video = document.getElementById("video");
+const canvas = document.createElement("canvas");
 
+// Start the webcam
 async function startWebcam() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
     video.srcObject = stream;
-  } catch (err) {
-    alert("Webcam access denied or not available.");
-    console.error("Webcam error:", err);
+  } catch (error) {
+    console.error("Error accessing webcam:", error);
+    status.textContent = "Webcam access denied.";
   }
 }
 
-// Capture & Mark Attendance
-captureBtn.addEventListener("click", async () => {
-  const canvas = document.createElement("canvas");
+// Capture image and convert to base64
+function captureImage() {
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  const dataUrl = canvas.toDataURL("image/jpeg");
-  const blob = await (await fetch(dataUrl)).blob();
+  canvas.getContext("2d").drawImage(video, 0, 0);
+  return canvas.toDataURL("image/jpeg");
+}
 
+// Upload image to S3 via pre-signed URL
+async function uploadImageToS3(imageDataUrl, key) {
   try {
-    statusText.textContent = "🔄 Getting upload URL...";
-    const res = await fetch(getPresignedUrl, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const blob = await (await fetch(imageDataUrl)).blob();
 
-    if (!res.ok) throw new Error("Failed to get upload URL");
+    const uploadUrlRes = await fetch(
+      `https://<your-api-id>.execute-api.us-east-1.amazonaws.com/getAttendanceImageUrl?key=${key}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
 
-    const { uploadUrl, fileKey } = await res.json();
+    const { url } = await uploadUrlRes.json();
 
-    // Upload to S3
-    statusText.textContent = "⬆️ Uploading image...";
-    const uploadRes = await fetch(uploadUrl, {
+    await fetch(url, {
       method: "PUT",
-      headers: { "Content-Type": "image/jpeg" },
-      body: blob
-    });
-
-    if (!uploadRes.ok) throw new Error("Failed to upload image to S3");
-
-    // Trigger attendance mark
-    statusText.textContent = "🔍 Matching face...";
-    const markRes = await fetch(markAttendanceUrl, {
-      method: "POST",
+      body: blob,
       headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ fileKey })
+        "Content-Type": "image/jpeg"
+      }
     });
 
-    const result = await markRes.json();
-    const now = new Date();
-
-    if (markRes.ok) {
-      previewImg.src = dataUrl;
-      previewSection.style.display = "block";
-      captureTime.textContent = `Captured at: ${now.toLocaleTimeString()}`;
-      statusText.textContent = `✅ Attendance marked: ${result.message || "Success"}`;
-      fetchAttendanceHistory();
-    } else {
-      statusText.textContent = `❌ Attendance failed: ${result.error || result.message}`;
-    }
-  } catch (err) {
-    console.error("Attendance error:", err);
-    statusText.textContent = "❌ An error occurred while marking attendance.";
-  }
-});
-
-// Load Attendance History
-async function fetchAttendanceHistory() {
-  const ul = document.getElementById("attendanceHistory");
-  ul.innerHTML = "<li>Loading...</li>";
-
-  try {
-    const res = await fetch(getHistoryUrl, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}` }
-    });
-
-    const data = await res.json();
-    ul.innerHTML = "";
-
-    if (!Array.isArray(data) || data.length === 0) {
-      ul.innerHTML = "<li>No attendance records found.</li>";
-      return;
-    }
-
-    data.forEach(record => {
-      const li = document.createElement("li");
-      li.textContent = `${record.date} – ${record.status}`;
-      ul.appendChild(li);
-    });
-  } catch (err) {
-    console.error("History load error:", err);
-    ul.innerHTML = "<li>Error loading attendance history.</li>";
+    return true;
+  } catch (error) {
+    console.error("Error uploading image:", error);
+    status.textContent = "Image upload failed.";
+    return false;
   }
 }
 
-// Submit Correction Request
-document.getElementById("correctionForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const date = document.getElementById("correctionDate").value;
-  const reason = document.getElementById("correctionReason").value.trim();
-  const status = document.getElementById("correctionStatus");
-
-  if (!date || !reason) {
-    status.textContent = "Please fill in both date and reason.";
-    return;
-  }
-
-  status.textContent = "Submitting correction request...";
+// Mark attendance
+async function markAttendance(imageDataUrl) {
   try {
-    const res = await fetch(submitCorrectionUrl, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ date, reason })
-    });
+    const response = await fetch(
+      "https://<your-api-id>.execute-api.us-east-1.amazonaws.com/markAttendance",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ image: imageDataUrl })
+      }
+    );
 
-    const result = await res.json();
-    if (res.ok) {
-      status.textContent = "✅ Correction request submitted.";
-      document.getElementById("correctionForm").reset();
+    const result = await response.json();
+
+    if (response.status === 200) {
+      status.textContent = `✅ Attendance marked for Employee ID: ${result.employee_id}`;
     } else {
-      status.textContent = `❌ Failed: ${result.error || result.message}`;
+      status.textContent = `❌ ${result.message || result.error}`;
     }
-  } catch (err) {
-    console.error("Correction request error:", err);
-    status.textContent = "❌ Error submitting correction request.";
+  } catch (error) {
+    console.error("Attendance error:", error);
+    status.textContent = "❌ Failed to mark attendance.";
+  }
+}
+
+// Handle capture button click
+captureButton.addEventListener("click", async () => {
+  status.textContent = "Processing...";
+  const imageDataUrl = captureImage();
+  const imageKey = `attendance/${Date.now()}.jpg`;
+
+  const uploaded = await uploadImageToS3(imageDataUrl, imageKey);
+
+  if (uploaded) {
+    await markAttendance(imageDataUrl);
   }
 });
 
-// Placeholder Summary
-document.getElementById("weeklySummary").textContent = "Feature coming soon...";
-
-// Init
+// Start webcam on page load
 startWebcam();
-fetchAttendanceHistory();
