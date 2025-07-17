@@ -1,57 +1,51 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Face Attendance - Redirecting...</title>
+  <title>Login Redirect Handler</title>
+</head>
+<body>
   <script>
+    const clientId = "4vu39fr2kccnb6kdk67v8ejsak"; // User App Client
+    const domain = "https://face-attendance-admin-auth.auth.us-east-1.amazoncognito.com";
+    const redirectUri = "https://cloudtechmadan.github.io/my-website-user/dashboard.html";
+
+    async function exchangeCodeForToken(code) {
+      const body = new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: clientId,
+        code: code,
+        redirect_uri: redirectUri
+      });
+
+      const response = await fetch(`${domain}/oauth2/token`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body
+      });
+
+      if (!response.ok) {
+        alert("Token exchange failed.");
+        return;
+      }
+
+      const tokens = await response.json();
+      localStorage.setItem("access_token", tokens.access_token);
+      localStorage.setItem("id_token", tokens.id_token);
+
+      window.location.href = "dashboard.html";
+    }
+
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get("code");
 
-    const clientId = "4vu39fr2kccnb6kdk67v8ejsak";
-    const redirectUri = "https://cloudtechmadan.github.io/my-website-user/index.html";
-    const cognitoDomain = "https://face-attendance-admin-auth.auth.us-east-1.amazoncognito.com";  // ✅ correct user domain
-
-    const tokenEndpoint = `${cognitoDomain}/oauth2/token`;
-
     if (code) {
-      const body = new URLSearchParams({
-        grant_type: "authorization_code",
-        code: code,
-        client_id: clientId,
-        redirect_uri: redirectUri,
-      });
-
-      fetch(tokenEndpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: body.toString(),
-      })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.access_token) {
-          localStorage.setItem("access_token", data.access_token);
-          localStorage.setItem("id_token", data.id_token);
-          localStorage.setItem("refresh_token", data.refresh_token);
-          window.location.href = "dashboard.html";
-        } else {
-          alert("Authentication failed. Please try again.");
-          console.error("Cognito error:", data);
-        }
-      })
-      .catch((err) => {
-        console.error("Token request failed:", err);
-        alert("Error during login.");
-      });
+      exchangeCodeForToken(code);
     } else {
-      const loginUrl = `${cognitoDomain}/login?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}`;
-      window.location.href = loginUrl;
+      alert("No code found in URL");
     }
   </script>
-</head>
-<body>
-  <p>Redirecting to login...</p>
 </body>
 </html>
