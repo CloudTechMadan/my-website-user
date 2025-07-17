@@ -1,109 +1,115 @@
-// dashboard.js
+document.addEventListener("DOMContentLoaded", () => {
+  const token = localStorage.getItem("access_token");
 
-// AWS Cognito login token retrieval
-const token = localStorage.getItem("accessToken");
-
-if (!token) {
-  alert("You are not logged in. Redirecting to login page.");
-  window.location.href = "index.html";
-}
-
-const status = document.getElementById("attendanceStatus");
-const captureButton = document.getElementById("captureButton");
-const video = document.getElementById("video");
-const canvas = document.createElement("canvas");
-
-// Start the webcam
-async function startWebcam() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    video.srcObject = stream;
-  } catch (error) {
-    console.error("Error accessing webcam:", error);
-    status.textContent = "Webcam access denied.";
+  if (!token) {
+    alert("You are not logged in.");
+    window.location.href = "https://cloudtechmadan.github.io/my-website-user/"; // Redirect to login
+    return;
   }
-}
 
-// Capture image and convert to base64
-function captureImage() {
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  canvas.getContext("2d").drawImage(video, 0, 0);
-  return canvas.toDataURL("image/jpeg");
-}
+  // Attendance Submission
+  document.getElementById("submitAttendance").addEventListener("click", async () => {
+    const video = document.createElement("video");
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
 
-// Upload image to S3 via pre-signed URL
-async function uploadImageToS3(imageDataUrl, key) {
-  try {
-    const blob = await (await fetch(imageDataUrl)).blob();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      video.srcObject = stream;
 
-    const uploadUrlRes = await fetch(
-      `https://<your-api-id>.execute-api.us-east-1.amazonaws.com/getAttendanceImageUrl?key=${key}`,
-      {
+      await new Promise((resolve) => {
+        video.onloadedmetadata = () => {
+          resolve(video.play());
+        };
+      });
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const imageData = canvas.toDataURL("image/jpeg");
+      const blobData = await (await fetch(imageData)).blob();
+
+      const presignedRes = await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/prod/presigned-url", {
+        method: "GET",
         headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    );
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-    const { url } = await uploadUrlRes.json();
+      const { uploadURL, filename } = await presignedRes.json();
 
-    await fetch(url, {
-      method: "PUT",
-      body: blob,
-      headers: {
-        "Content-Type": "image/jpeg"
-      }
-    });
+      await fetch(uploadURL, {
+        method: "PUT",
+        body: blobData,
+        headers: { "Content-Type": "image/jpeg" },
+      });
 
-    return true;
-  } catch (error) {
-    console.error("Error uploading image:", error);
-    status.textContent = "Image upload failed.";
-    return false;
-  }
-}
-
-// Mark attendance
-async function markAttendance(imageDataUrl) {
-  try {
-    const response = await fetch(
-      "https://<your-api-id>.execute-api.us-east-1.amazonaws.com/markAttendance",
-      {
+      await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/prod/face-user-attendance-check", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ image: imageDataUrl })
-      }
-    );
+        body: JSON.stringify({ filename }),
+      });
 
-    const result = await response.json();
-
-    if (response.status === 200) {
-      status.textContent = `✅ Attendance marked for Employee ID: ${result.employee_id}`;
-    } else {
-      status.textContent = `❌ ${result.message || result.error}`;
+      alert("Attendance submitted!");
+    } catch (error) {
+      console.error(error);
+      alert("Failed to mark attendance.");
     }
-  } catch (error) {
-    console.error("Attendance error:", error);
-    status.textContent = "❌ Failed to mark attendance.";
-  }
-}
+  });
 
-// Handle capture button click
-captureButton.addEventListener("click", async () => {
-  status.textContent = "Processing...";
-  const imageDataUrl = captureImage();
-  const imageKey = `attendance/${Date.now()}.jpg`;
+  // View Attendance History
+  document.getElementById("viewHistory").addEventListener("click", async () => {
+    try {
+      const res = await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/prod/get-attendance-history", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-  const uploaded = await uploadImageToS3(imageDataUrl, imageKey);
+      const data = await res.json();
+      const outputDiv = document.getElementById("output");
+      outputDiv.innerHTML = "<h3>Your Attendance History:</h3>";
 
-  if (uploaded) {
-    await markAttendance(imageDataUrl);
-  }
+      data.forEach((entry) => {
+        outputDiv.innerHTML += `<p>${entry.date} - ${entry.status}</p>`;
+      });
+    } catch (error) {
+      console.error(error);
+      alert("Failed to load attendance history.");
+    }
+  });
+
+  // Submit Correction Request
+  document.getElementById("submitCorrection").addEventListener("click", async () => {
+    const date = document.getElementById("correctionDate").value;
+    const reason = document.getElementById("correctionReason").value;
+
+    try {
+      await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/prod/submit-correction-request", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ date, reason }),
+      });
+
+      alert("Correction request submitted.");
+    } catch (error) {
+      console.error(error);
+      alert("Failed to submit correction.");
+    }
+  });
+
+  // Logout
+  document.getElementById("logout").addEventListener("click", () => {
+    localStorage.removeItem("access_token");
+    alert("Logged out.");
+    window.location.href = "https://cloudtechmadan.github.io/my-website-user/";
+  });
 });
-
-// Start webcam on page load
-startWebcam();
