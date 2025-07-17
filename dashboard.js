@@ -10,7 +10,7 @@ if (!token) {
   window.location.href = "index.html";
 }
 
-// 📷 Webcam setup
+// Webcam Setup
 const video = document.getElementById("webcam");
 const captureBtn = document.getElementById("captureBtn");
 const previewImg = document.getElementById("capturedPreview");
@@ -24,11 +24,11 @@ async function startWebcam() {
     video.srcObject = stream;
   } catch (err) {
     alert("Webcam access denied or not available.");
-    console.error(err);
+    console.error("Webcam error:", err);
   }
 }
 
-// 📸 Capture image and upload
+// Capture & Mark Attendance
 captureBtn.addEventListener("click", async () => {
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth;
@@ -36,54 +36,59 @@ captureBtn.addEventListener("click", async () => {
   const ctx = canvas.getContext("2d");
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   const dataUrl = canvas.toDataURL("image/jpeg");
-
   const blob = await (await fetch(dataUrl)).blob();
 
   try {
-    statusText.textContent = "Uploading image...";
-    // 1. Get pre-signed URL
+    statusText.textContent = "🔄 Getting upload URL...";
     const res = await fetch(getPresignedUrl, {
       method: "GET",
-      headers: { Authorization: token }
+      headers: { Authorization: `Bearer ${token}` }
     });
+
+    if (!res.ok) throw new Error("Failed to get upload URL");
+
     const { uploadUrl, fileKey } = await res.json();
 
-    // 2. Upload image to S3
-    await fetch(uploadUrl, {
+    // Upload to S3
+    statusText.textContent = "⬆️ Uploading image...";
+    const uploadRes = await fetch(uploadUrl, {
       method: "PUT",
       headers: { "Content-Type": "image/jpeg" },
       body: blob
     });
 
-    // 3. Call mark attendance API
-    statusText.textContent = "Checking face and logging attendance...";
+    if (!uploadRes.ok) throw new Error("Failed to upload image to S3");
+
+    // Trigger attendance mark
+    statusText.textContent = "🔍 Matching face...";
     const markRes = await fetch(markAttendanceUrl, {
       method: "POST",
       headers: {
-        Authorization: token,
+        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({ fileKey })
     });
 
     const result = await markRes.json();
+    const now = new Date();
+
     if (markRes.ok) {
-      const now = new Date();
       previewImg.src = dataUrl;
       previewSection.style.display = "block";
       captureTime.textContent = `Captured at: ${now.toLocaleTimeString()}`;
       statusText.textContent = `✅ Attendance marked: ${result.message || "Success"}`;
       fetchAttendanceHistory();
     } else {
-      statusText.textContent = `❌ Failed: ${result.error || result.message}`;
+      statusText.textContent = `❌ Attendance failed: ${result.error || result.message}`;
     }
   } catch (err) {
-    console.error(err);
-    statusText.textContent = "❌ Error occurred while submitting attendance.";
+    console.error("Attendance error:", err);
+    statusText.textContent = "❌ An error occurred while marking attendance.";
   }
 });
 
-// 📜 Load Attendance History
+// Load Attendance History
 async function fetchAttendanceHistory() {
   const ul = document.getElementById("attendanceHistory");
   ul.innerHTML = "<li>Loading...</li>";
@@ -91,7 +96,7 @@ async function fetchAttendanceHistory() {
   try {
     const res = await fetch(getHistoryUrl, {
       method: "GET",
-      headers: { Authorization: token }
+      headers: { Authorization: `Bearer ${token}` }
     });
 
     const data = await res.json();
@@ -108,12 +113,12 @@ async function fetchAttendanceHistory() {
       ul.appendChild(li);
     });
   } catch (err) {
-    console.error(err);
-    ul.innerHTML = "<li>Error loading history.</li>";
+    console.error("History load error:", err);
+    ul.innerHTML = "<li>Error loading attendance history.</li>";
   }
 }
 
-// 📝 Submit Correction Request
+// Submit Correction Request
 document.getElementById("correctionForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const date = document.getElementById("correctionDate").value;
@@ -125,12 +130,12 @@ document.getElementById("correctionForm").addEventListener("submit", async (e) =
     return;
   }
 
-  status.textContent = "Submitting request...";
+  status.textContent = "Submitting correction request...";
   try {
     const res = await fetch(submitCorrectionUrl, {
       method: "POST",
       headers: {
-        Authorization: token,
+        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({ date, reason })
@@ -144,14 +149,14 @@ document.getElementById("correctionForm").addEventListener("submit", async (e) =
       status.textContent = `❌ Failed: ${result.error || result.message}`;
     }
   } catch (err) {
-    console.error(err);
+    console.error("Correction request error:", err);
     status.textContent = "❌ Error submitting correction request.";
   }
 });
 
-// ⏳ Weekly Summary (Placeholder)
+// Placeholder Summary
 document.getElementById("weeklySummary").textContent = "Feature coming soon...";
 
-// ▶️ Start everything
+// Init
 startWebcam();
 fetchAttendanceHistory();
