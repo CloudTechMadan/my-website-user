@@ -4,6 +4,11 @@
   <meta charset="UTF-8">
   <title>Employee Attendance Dashboard</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    section { margin-bottom: 30px; }
+    video, canvas, img { max-width: 100%; border: 1px solid #ccc; border-radius: 8px; }
+    button { padding: 8px 16px; margin-top: 10px; }
+  </style>
 </head>
 <body>
   <h1>Welcome to Your Attendance Dashboard</h1>
@@ -11,9 +16,14 @@
   <!-- Webcam Capture Section -->
   <section id="webcamSection">
     <h2>1. Mark Attendance</h2>
-    <video id="webcam" autoplay></video><br />
-    <button id="captureBtn">Mark Attendance</button>
+    <video id="webcam" autoplay playsinline></video><br />
+    <button id="captureBtn">📸 Mark Attendance</button>
     <p id="attendanceStatus"></p>
+    <div id="previewSection" style="display: none;">
+      <h4>Captured Image:</h4>
+      <img id="capturedPreview" alt="Captured image preview" />
+      <p id="captureTime"></p>
+    </div>
   </section>
 
   <!-- Attendance History -->
@@ -36,8 +46,10 @@
     <form id="correctionForm">
       <label for="correctionDate">Date:</label>
       <input type="date" id="correctionDate" required><br><br>
+
       <label for="correctionReason">Reason:</label><br>
       <textarea id="correctionReason" rows="4" cols="40" required></textarea><br><br>
+
       <button type="submit">Submit Request</button>
     </form>
     <p id="correctionStatus"></p>
@@ -45,7 +57,7 @@
 
   <!-- Logout Button -->
   <section>
-    <button onclick="logout()">Logout</button>
+    <button onclick="logout()">🚪 Logout</button>
   </section>
 
   <script src="dashboard.js"></script>
