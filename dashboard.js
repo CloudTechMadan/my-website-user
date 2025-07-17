@@ -1,34 +1,56 @@
 const token = localStorage.getItem("access_token");
+
+// Redirect to login if token is missing
+if (!token) {
+  alert("Session expired. Please log in again.");
+  window.location.href = "index.html";
+}
+
 const video = document.getElementById("webcam");
 const captureBtn = document.getElementById("captureBtn");
 const statusMsg = document.getElementById("attendanceStatus");
+const imagePreview = document.getElementById("imagePreview");
 
-// Setup webcam
+// Initialize webcam
 navigator.mediaDevices.getUserMedia({ video: true })
   .then((stream) => {
     video.srcObject = stream;
   })
   .catch((err) => {
     console.error("Webcam error:", err);
-    statusMsg.textContent = "Unable to access webcam.";
+    statusMsg.textContent = "❌ Unable to access webcam.";
   });
 
-// Upload captured image and call face-user-attendance-check
+// Click to capture and mark attendance
 captureBtn.addEventListener("click", async () => {
-  statusMsg.textContent = "Submitting attendance...";
+  statusMsg.textContent = "📸 Capturing image...";
+  
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   canvas.getContext("2d").drawImage(video, 0, 0);
   const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg"));
 
-  try {
-    // 1. Generate a unique filename
-    const imageKey = `attendance/${Date.now()}.jpg`;
-    const uploadUrl = `https://face-attendance-system-using-rek.s3.amazonaws.com/${imageKey}`;
+  // Optional preview
+  imagePreview.src = URL.createObjectURL(blob);
+  imagePreview.style.display = "block";
 
-    // 2. Upload to S3 directly (bucket must allow PUT via CORS and public write for this key)
-    await fetch(uploadUrl, {
+  try {
+    // Step 1: Get presigned URL from backend
+    const presignResp = await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/getAttendanceImageUrl", {
+      method: "POST",
+      headers: {
+        Authorization: token,
+        "Content-Type": "application/json"
+      }
+    });
+
+    const { uploadUrl, imageKey } = await presignResp.json();
+
+    if (!uploadUrl || !imageKey) throw new Error("Presigned URL fetch failed.");
+
+    // Step 2: Upload the image to S3 via presigned URL
+    const s3Resp = await fetch(uploadUrl, {
       method: "PUT",
       body: blob,
       headers: {
@@ -36,7 +58,9 @@ captureBtn.addEventListener("click", async () => {
       }
     });
 
-    // 3. Call the backend to process the uploaded image
+    if (!s3Resp.ok) throw new Error("Upload to S3 failed");
+
+    // Step 3: Call markAttendance with imageKey
     const attendanceResp = await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/markAttendance", {
       method: "POST",
       headers: {
@@ -50,6 +74,7 @@ captureBtn.addEventListener("click", async () => {
 
     if (attendanceResp.ok) {
       statusMsg.textContent = "✅ Attendance marked successfully!";
+      loadAttendanceHistory(); // Refresh
     } else {
       throw new Error(result.error || "Attendance failed");
     }
@@ -60,7 +85,7 @@ captureBtn.addEventListener("click", async () => {
   }
 });
 
-// Attendance history
+// Load attendance history
 async function loadAttendanceHistory() {
   const list = document.getElementById("attendanceHistory");
   list.innerHTML = "<li>Loading...</li>";
@@ -71,6 +96,7 @@ async function loadAttendanceHistory() {
     });
 
     const data = await resp.json();
+
     if (resp.ok && Array.isArray(data.history)) {
       list.innerHTML = "";
       data.history.forEach(entry => {
@@ -81,16 +107,17 @@ async function loadAttendanceHistory() {
     } else {
       list.innerHTML = "<li>No history found.</li>";
     }
+
   } catch (err) {
-    console.error(err);
-    list.innerHTML = "<li>Error loading history.</li>";
+    console.error("History error:", err);
+    list.innerHTML = "<li>⚠️ Error loading history.</li>";
   }
 }
 
-// Weekly summary placeholder
+// Weekly summary (placeholder for now)
 function displayWeeklySummary() {
   const summary = document.getElementById("weeklySummary");
-  summary.innerHTML = "Coming soon...";
+  summary.innerHTML = "<em>Coming soon...</em>";
 }
 
 // Correction request
@@ -102,7 +129,7 @@ correctionForm.addEventListener("submit", async (e) => {
   const date = document.getElementById("correctionDate").value;
   const reason = document.getElementById("correctionReason").value;
 
-  correctionStatus.textContent = "Submitting request...";
+  correctionStatus.textContent = "📤 Submitting request...";
 
   try {
     const resp = await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/submitCorrectionRequest", {
@@ -122,12 +149,20 @@ correctionForm.addEventListener("submit", async (e) => {
     } else {
       throw new Error(result.error || "Submission failed.");
     }
+
   } catch (error) {
-    console.error(error);
+    console.error("Correction error:", error);
     correctionStatus.textContent = "❌ Failed to submit correction.";
   }
 });
 
-// Load on startup
+// Logout button
+const logoutBtn = document.getElementById("logoutBtn");
+logoutBtn.addEventListener("click", () => {
+  localStorage.removeItem("access_token");
+  window.location.href = "index.html";
+});
+
+// Load initial data
 loadAttendanceHistory();
 displayWeeklySummary();
