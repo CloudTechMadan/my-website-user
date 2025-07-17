@@ -1,7 +1,7 @@
 // dashboard.js
 
 const clientId = "4vu39fr2kccnb6kdk67v8ejsak"; // Cognito App Client ID
-const domain = "https://cloudtechmadan.auth.us-east-1.amazoncognito.com";
+const domain = "https://face-attendance-admin-auth.auth.us-east-1.amazoncognito.com";
 const redirectUri = "https://cloudtechmadan.github.io/my-website-user/index.html";
 
 // === Token Parsing ===
