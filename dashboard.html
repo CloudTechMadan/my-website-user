@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Face Attendance Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>Welcome, <span id="username">Employee</span></h1>
+    <button id="logoutBtn">Logout</button>
+  </header>
+
+  <main>
+    <section>
+      <h2>📸 Submit Attendance</h2>
+      <video id="webcam" autoplay playsinline></video>
+      <button id="captureBtn">Submit Attendance</button>
+      <p id="attendanceStatus"></p>
+    </section>
+
+    <section>
+      <h2>📅 My Attendance History</h2>
+      <ul id="attendanceHistory"></ul>
+    </section>
+
+    <section>
+      <h2>📊 Weekly Summary</h2>
+      <div id="weeklySummary"></div>
+    </section>
+
+    <section>
+      <h2>✍️ Request Correction</h2>
+      <form id="correctionForm">
+        <input type="date" id="correctionDate" required />
+        <textarea id="correctionReason" placeholder="Reason..." required></textarea>
+        <button type="submit">Submit Request</button>
+      </form>
+      <p id="correctionStatus"></p>
+    </section>
+  </main>
+
+  <script type="module" src="dashboard.js"></script>
+</body>
+</html>
