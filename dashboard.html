@@ -3,16 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <title>Employee Attendance Dashboard</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    video { width: 300px; border: 2px solid #444; margin-bottom: 10px; }
-    section { margin-top: 30px; }
-    #status { font-weight: bold; color: green; margin-top: 10px; }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <h1>Welcome to Your Attendance Dashboard</h1>
 
+  <!-- Webcam Capture Section -->
   <section id="webcamSection">
     <h2>1. Mark Attendance</h2>
     <video id="webcam" autoplay></video><br />
@@ -20,6 +16,7 @@
     <p id="attendanceStatus"></p>
   </section>
 
+  <!-- Attendance History -->
   <section id="historySection">
     <h2>2. My Attendance History</h2>
     <ul id="attendanceHistory">
@@ -27,11 +24,13 @@
     </ul>
   </section>
 
+  <!-- Weekly Summary -->
   <section id="summarySection">
     <h2>3. Weekly Summary</h2>
-    <div id="weeklySummary"></div>
+    <div id="weeklySummary">Coming soon...</div>
   </section>
 
+  <!-- Correction Request -->
   <section id="correctionSection">
     <h2>4. Request Correction</h2>
     <form id="correctionForm">
@@ -44,6 +43,7 @@
     <p id="correctionStatus"></p>
   </section>
 
+  <!-- Logout Button -->
   <section>
     <button onclick="logout()">Logout</button>
   </section>
