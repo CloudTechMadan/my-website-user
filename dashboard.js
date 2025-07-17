@@ -1,8 +1,8 @@
 const BASE_API = "https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/prod";
-const markAttendanceUrl = `${BASE_API}/mark-attendance`;
-const getHistoryUrl = `${BASE_API}/get-attendance-history`;
-const submitCorrectionUrl = `${BASE_API}/submit-correction-request`;
-const getPresignedUrl = `${BASE_API}/get-presigned-url`;
+const markAttendanceUrl = `${BASE_API}/markAttendance`;
+const getHistoryUrl = `${BASE_API}/getAttendanceHistory`;
+const submitCorrectionUrl = `${BASE_API}/submitCorrectionRequest`;
+const getPresignedUrl = `${BASE_API}/getAttendanceImageUrl`;
 
 const token = localStorage.getItem("access_token");
 if (!token) {
