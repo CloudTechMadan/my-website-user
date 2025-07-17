@@ -37,7 +37,7 @@ captureBtn.addEventListener("click", async () => {
     });
 
     // 3. Call the backend to process the uploaded image
-    const attendanceResp = await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/face-user-attendance-check", {
+    const attendanceResp = await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/markAttendance", {
       method: "POST",
       headers: {
         Authorization: token,
@@ -66,7 +66,7 @@ async function loadAttendanceHistory() {
   list.innerHTML = "<li>Loading...</li>";
 
   try {
-    const resp = await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/get-attendance-history", {
+    const resp = await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/getAttendanceHistory", {
       headers: { Authorization: token }
     });
 
@@ -105,7 +105,7 @@ correctionForm.addEventListener("submit", async (e) => {
   correctionStatus.textContent = "Submitting request...";
 
   try {
-    const resp = await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/submit-correction-request", {
+    const resp = await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/submitCorrectionRequest", {
       method: "POST",
       headers: {
         Authorization: token,
