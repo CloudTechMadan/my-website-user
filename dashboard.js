@@ -1,145 +1,133 @@
-// dashboard.js
+const token = localStorage.getItem("access_token");
+const video = document.getElementById("webcam");
+const captureBtn = document.getElementById("captureBtn");
+const statusMsg = document.getElementById("attendanceStatus");
 
-const clientId = "4vu39fr2kccnb6kdk67v8ejsak";
-const domain = "https://face-attendance-admin-auth.auth.us-east-1.amazoncognito.com";
-const redirectUri = "https://cloudtechmadan.github.io/my-website-user/index.html";
+// Setup webcam
+navigator.mediaDevices.getUserMedia({ video: true })
+  .then((stream) => {
+    video.srcObject = stream;
+  })
+  .catch((err) => {
+    console.error("Webcam error:", err);
+    statusMsg.textContent = "Unable to access webcam.";
+  });
 
-// === Auth Check ===
-function getAccessToken() {
-  return localStorage.getItem("access_token");
-}
-
-function isAuthenticated() {
-  return !!getAccessToken();
-}
-
-// === Logout ===
-function logout() {
-  localStorage.clear();
-  window.location.href = `${domain}/logout?client_id=${clientId}&logout_uri=${redirectUri}`;
-}
-document.getElementById("logoutBtn").addEventListener("click", logout);
-
-// === Redirect if Not Authenticated ===
-if (!isAuthenticated()) {
-  window.location.href = `${domain}/login?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}`;
-} else {
-  document.getElementById("username").textContent = "Employee";
-}
-
-// === Webcam Attendance Capture ===
-document.getElementById("captureBtn").addEventListener("click", async () => {
-  const video = document.getElementById("webcam");
+// Upload captured image and call face-user-attendance-check
+captureBtn.addEventListener("click", async () => {
+  statusMsg.textContent = "Submitting attendance...";
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   canvas.getContext("2d").drawImage(video, 0, 0);
   const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg"));
 
-  const token = getAccessToken();
-  if (!token) return alert("Unauthorized");
-
-  const presignRes = await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/prod/getPresignedUrl", {
-    method: "POST",
-    headers: {
-      Authorization: token,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ filename: `attendance-${Date.now()}.jpg` }),
-  });
-
-  if (!presignRes.ok) {
-    return alert("Error getting upload URL.");
-  }
-
-  const { url } = await presignRes.json();
-
-  await fetch(url, {
-    method: "PUT",
-    body: blob,
-    headers: {
-      "Content-Type": "image/jpeg",
-    },
-  });
-
-  document.getElementById("attendanceStatus").textContent = "Attendance submitted.";
-});
-
-// === 📅 Load Attendance History ===
-async function loadAttendanceHistory() {
-  const token = getAccessToken();
-  const list = document.getElementById("attendanceHistory");
-
   try {
-    const response = await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/prod/getAttendanceHistory", {
-      method: "GET",
+    // 1. Generate a unique filename
+    const imageKey = `attendance/${Date.now()}.jpg`;
+    const uploadUrl = `https://face-attendance-system-using-rek.s3.amazonaws.com/${imageKey}`;
+
+    // 2. Upload to S3 directly (bucket must allow PUT via CORS and public write for this key)
+    await fetch(uploadUrl, {
+      method: "PUT",
+      body: blob,
       headers: {
-        Authorization: token,
-      },
+        "Content-Type": "image/jpeg"
+      }
     });
 
-    if (!response.ok) throw new Error("Failed to fetch attendance history");
-
-    const data = await response.json();
-    list.innerHTML = "";
-
-    if (!data.records || data.records.length === 0) {
-      list.innerHTML = "<li>No records found</li>";
-    } else {
-      data.records.forEach((record) => {
-        const li = document.createElement("li");
-        li.textContent = `Date: ${record.date}, Status: ${record.status}`;
-        list.appendChild(li);
-      });
-    }
-  } catch (error) {
-    console.error("Error loading attendance history:", error);
-    list.innerHTML = "<li>Error loading data</li>";
-  }
-}
-
-// === ✍️ Submit Correction Request ===
-document.getElementById("correctionForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-
-  const token = getAccessToken();
-  const date = document.getElementById("correctionDate").value;
-  const reason = document.getElementById("correctionReason").value.trim();
-  const status = document.getElementById("correctionStatus");
-
-  try {
-    const response = await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/prod/submitCorrectionRequest", {
+    // 3. Call the backend to process the uploaded image
+    const attendanceResp = await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/face-user-attendance-check", {
       method: "POST",
       headers: {
         Authorization: token,
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
       },
-      body: JSON.stringify({ date, reason }),
+      body: JSON.stringify({ imageKey })
     });
 
-    if (!response.ok) throw new Error("Failed to submit request");
+    const result = await attendanceResp.json();
 
-    status.textContent = "Correction request submitted successfully.";
-    document.getElementById("correctionForm").reset();
-  } catch (error) {
-    console.error("Error submitting correction:", error);
-    status.textContent = "Error submitting correction request.";
+    if (attendanceResp.ok) {
+      statusMsg.textContent = "✅ Attendance marked successfully!";
+    } else {
+      throw new Error(result.error || "Attendance failed");
+    }
+
+  } catch (err) {
+    console.error("Attendance error:", err);
+    statusMsg.textContent = "❌ Error marking attendance.";
   }
 });
 
-// === Webcam Setup ===
-async function setupWebcam() {
-  const video = document.getElementById("webcam");
+// Attendance history
+async function loadAttendanceHistory() {
+  const list = document.getElementById("attendanceHistory");
+  list.innerHTML = "<li>Loading...</li>";
+
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    video.srcObject = stream;
-  } catch (error) {
-    console.error("Failed to access webcam:", error);
+    const resp = await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/get-attendance-history", {
+      headers: { Authorization: token }
+    });
+
+    const data = await resp.json();
+    if (resp.ok && Array.isArray(data.history)) {
+      list.innerHTML = "";
+      data.history.forEach(entry => {
+        const li = document.createElement("li");
+        li.textContent = `${entry.date} - ${entry.status}`;
+        list.appendChild(li);
+      });
+    } else {
+      list.innerHTML = "<li>No history found.</li>";
+    }
+  } catch (err) {
+    console.error(err);
+    list.innerHTML = "<li>Error loading history.</li>";
   }
 }
 
-// === Init All Features ===
-window.addEventListener("load", () => {
-  setupWebcam();
-  loadAttendanceHistory();
+// Weekly summary placeholder
+function displayWeeklySummary() {
+  const summary = document.getElementById("weeklySummary");
+  summary.innerHTML = "Coming soon...";
+}
+
+// Correction request
+const correctionForm = document.getElementById("correctionForm");
+const correctionStatus = document.getElementById("correctionStatus");
+
+correctionForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const date = document.getElementById("correctionDate").value;
+  const reason = document.getElementById("correctionReason").value;
+
+  correctionStatus.textContent = "Submitting request...";
+
+  try {
+    const resp = await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/submit-correction-request", {
+      method: "POST",
+      headers: {
+        Authorization: token,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ date, reason })
+    });
+
+    const result = await resp.json();
+
+    if (resp.ok) {
+      correctionStatus.textContent = "✅ Correction request submitted.";
+      correctionForm.reset();
+    } else {
+      throw new Error(result.error || "Submission failed.");
+    }
+  } catch (error) {
+    console.error(error);
+    correctionStatus.textContent = "❌ Failed to submit correction.";
+  }
 });
+
+// Load on startup
+loadAttendanceHistory();
+displayWeeklySummary();
