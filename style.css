@@ -1,4 +1,4 @@
-/* style.css - Optimized for Face Attendance User Dashboard */
+/* style.css - Face Attendance User Dashboard (Improved) */
 
 :root {
   --primary-color: #0f62fe;
@@ -8,8 +8,10 @@
   --text-color: #333333;
   --light-border: #e5e7eb;
   --table-header-bg: #f9fafb;
-  --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   --radius: 10px;
+  --success-color: green;
+  --error-color: red;
 }
 
 body {
@@ -35,6 +37,26 @@ header h1 {
   margin: 0;
 }
 
+main {
+  padding: 2rem;
+}
+
+section {
+  margin-bottom: 2rem;
+  background-color: var(--white);
+  padding: 1.5rem 2rem;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+h2 {
+  font-size: 1.3rem;
+  margin-top: 0;
+  border-bottom: 2px solid var(--light-border);
+  padding-bottom: 0.5rem;
+  color: var(--primary-color);
+}
+
 button {
   background-color: var(--primary-color);
   color: var(--white);
@@ -50,24 +72,16 @@ button:hover {
   background-color: var(--primary-hover);
 }
 
-main {
-  padding: 2rem;
+button:disabled {
+  background-color: #a3c0f9;
+  cursor: not-allowed;
 }
 
-section {
-  margin-bottom: 2rem;
-  background-color: var(--white);
-  padding: 1.5rem 2rem;
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-}
-
-h2 {
-  font-size: 1.25rem;
-  margin-top: 0;
-  border-bottom: 2px solid var(--light-border);
-  padding-bottom: 0.5rem;
-  color: var(--primary-color);
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
 }
 
 #webcam-container {
@@ -93,7 +107,11 @@ canvas {
 #correctionStatus {
   margin-top: 1rem;
   font-weight: bold;
-  color: green;
+  color: var(--success-color);
+}
+
+.error {
+  color: var(--error-color);
 }
 
 form {
@@ -113,6 +131,7 @@ textarea {
 
 textarea {
   resize: vertical;
+  min-height: 80px;
 }
 
 ul#attendanceHistory {
@@ -124,9 +143,11 @@ table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 1rem;
+  font-size: 0.95rem;
 }
 
-th, td {
+th,
+td {
   padding: 0.75rem;
   text-align: left;
   border: 1px solid #ccc;
@@ -135,6 +156,20 @@ th, td {
 th {
   background-color: var(--table-header-bg);
   font-weight: 600;
+}
+
+td {
+  background-color: #fff;
+}
+
+.logout-btn {
+  background-color: #e53935;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+}
+
+.logout-btn:hover {
+  background-color: #c62828;
 }
 
 @media (max-width: 768px) {
@@ -152,8 +187,18 @@ th {
     width: 100%;
   }
 
+  .button-row {
+    flex-direction: column;
+  }
+
   button {
     width: 100%;
     padding: 0.8rem;
+  }
+
+  table,
+  th,
+  td {
+    font-size: 0.85rem;
   }
 }
