@@ -99,15 +99,17 @@ async function fetchAttendanceHistory() {
       headers: { Authorization: `Bearer ${token}` }
     });
 
-    const data = await res.json();
+    const result = await res.json();  // rename to result for clarity
     ul.innerHTML = "";
 
-    if (!Array.isArray(data) || data.length === 0) {
+    const history = result.data; // extract the array
+
+    if (!Array.isArray(history) || history.length === 0) {
       ul.innerHTML = "<li>No attendance records found.</li>";
       return;
     }
 
-    data.forEach(record => {
+    history.forEach(record => {
       const li = document.createElement("li");
       li.textContent = `${record.date} – ${record.status}`;
       ul.appendChild(li);
@@ -117,6 +119,7 @@ async function fetchAttendanceHistory() {
     ul.innerHTML = "<li>Error loading attendance history.</li>";
   }
 }
+
 
 // Submit Correction Request
 document.getElementById("correctionForm").addEventListener("submit", async (e) => {
