@@ -1,10 +1,10 @@
 // dashboard.js
 
-const clientId = "4vu39fr2kccnb6kdk67v8ejsak"; // Your Cognito App Client ID
+const clientId = "4vu39fr2kccnb6kdk67v8ejsak"; // Cognito App Client ID
 const domain = "https://cloudtechmadan.auth.us-east-1.amazoncognito.com";
 const redirectUri = "https://cloudtechmadan.github.io/my-website-user/index.html";
 
-// Parse tokens from URL fragment and store them
+// === Token Parsing ===
 function parseTokens() {
   const hash = window.location.hash.substr(1);
   const params = new URLSearchParams(hash);
@@ -18,32 +18,27 @@ function parseTokens() {
   }
 }
 
-// Check if logged in
+// === Auth Check ===
 function isAuthenticated() {
   return !!localStorage.getItem("accessToken");
 }
 
-// Logout
+// === Logout ===
 function logout() {
   localStorage.clear();
   window.location.href = `${domain}/logout?client_id=${clientId}&logout_uri=${redirectUri}`;
 }
-
 document.getElementById("logoutBtn").addEventListener("click", logout);
 
-// On load
+// === On Load ===
 parseTokens();
-
 if (!isAuthenticated()) {
   window.location.href = `${domain}/login?response_type=token&client_id=${clientId}&redirect_uri=${redirectUri}`;
 }
+document.getElementById("username").textContent = "Employee";
 
-// Example placeholder - update DOM with greeting
-const usernameSpan = document.getElementById("username");
-usernameSpan.textContent = "Employee"; // You can decode idToken to get name if needed
-
-// Attendance upload handler (replace with presigned URL logic)
-document.getElementById("captureAttendance").addEventListener("click", async () => {
+// === Webcam Attendance Capture ===
+document.getElementById("captureBtn").addEventListener("click", async () => {
   const video = document.getElementById("webcam");
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth;
@@ -54,8 +49,8 @@ document.getElementById("captureAttendance").addEventListener("click", async () 
   const accessToken = localStorage.getItem("accessToken");
   if (!accessToken) return alert("Unauthorized");
 
-  // Get presigned URL from your backend (Lambda via API Gateway)
-  const presignRes = await fetch("https://YOUR_API/presign-url", {
+  // Replace with your actual presigned URL endpoint
+  const presignRes = await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/prod/getPresignedUrl", {
     method: "POST",
     headers: {
       Authorization: accessToken,
@@ -65,6 +60,7 @@ document.getElementById("captureAttendance").addEventListener("click", async () 
   });
 
   const { url } = await presignRes.json();
+
   await fetch(url, {
     method: "PUT",
     body: blob,
@@ -73,7 +69,84 @@ document.getElementById("captureAttendance").addEventListener("click", async () 
     },
   });
 
-  document.getElementById("captureStatus").textContent = "Attendance submitted.";
+  document.getElementById("attendanceStatus").textContent = "Attendance submitted.";
 });
 
-// TODO: Add fetch logic for Attendance History, Weekly Summary, Correction Form submission
+// === 📅 Load Attendance History ===
+async function loadAttendanceHistory() {
+  const accessToken = localStorage.getItem("accessToken");
+  const list = document.getElementById("attendanceHistory");
+
+  try {
+    const response = await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/prod/getAttendanceHistory", {
+      method: "GET",
+      headers: {
+        Authorization: accessToken
+      }
+    });
+
+    if (!response.ok) throw new Error("Failed to fetch attendance history");
+
+    const data = await response.json();
+    list.innerHTML = "";
+
+    if (!data.records || data.records.length === 0) {
+      list.innerHTML = "<li>No records found</li>";
+    } else {
+      data.records.forEach(record => {
+        const li = document.createElement("li");
+        li.textContent = `Date: ${record.date}, Status: ${record.status}`;
+        list.appendChild(li);
+      });
+    }
+  } catch (error) {
+    console.error("Error loading attendance history:", error);
+    list.innerHTML = "<li>Error loading data</li>";
+  }
+}
+
+// === ✍️ Submit Correction Request ===
+document.getElementById("correctionForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const accessToken = localStorage.getItem("accessToken");
+  const date = document.getElementById("correctionDate").value;
+  const reason = document.getElementById("correctionReason").value.trim();
+  const status = document.getElementById("correctionStatus");
+
+  try {
+    const response = await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/prod/submitCorrectionRequest", {
+      method: "POST",
+      headers: {
+        Authorization: accessToken,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ date, reason })
+    });
+
+    if (!response.ok) throw new Error("Failed to submit request");
+
+    status.textContent = "Correction request submitted successfully.";
+    document.getElementById("correctionForm").reset();
+  } catch (error) {
+    console.error("Error submitting correction:", error);
+    status.textContent = "Error submitting correction request.";
+  }
+});
+
+// === Webcam Setup ===
+async function setupWebcam() {
+  const video = document.getElementById("webcam");
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    video.srcObject = stream;
+  } catch (error) {
+    console.error("Failed to access webcam:", error);
+  }
+}
+
+// === Init All Features ===
+window.addEventListener("load", () => {
+  setupWebcam();
+  loadAttendanceHistory();
+});
