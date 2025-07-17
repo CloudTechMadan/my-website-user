@@ -1,27 +1,31 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Face Attendance System</title>
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <div class="container">
-    <h1>Face Attendance System</h1>
-    <p class="description">Click capture to mark your attendance using face recognition.</p>
+<script>
+  const clientId = '4vu39fr2kccnb6kdk67v8ejsak';
+  const redirectUri = 'https://cloudtechmadan.github.io/my-website-user/index.html';
+  const domain = 'your-cognito-domain.auth.us-east-1.amazoncognito.com'; // Replace with your actual domain
 
-    <video id="video" width="320" autoplay muted></video>
-    <canvas id="canvas" width="320" height="240" style="display: none;"></canvas>
+  // Check for access_token in URL (after login redirect)
+  const urlParams = new URLSearchParams(window.location.search);
+  const code = urlParams.get('code');
 
-    <div class="controls">
-      <button onclick="capture()">📷 Capture & Submit</button>
-    </div>
-
-    <p id="status">Camera ready...</p>
-  </div>
-  
-  <script src="auth.js"></script>
-  <script src="script.js"></script>
-</body>
-</html>
+  if (code) {
+    // Exchange code for tokens
+    fetch(`https://${domain}/oauth2/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: `grant_type=authorization_code&client_id=${clientId}&code=${code}&redirect_uri=${redirectUri}`
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.access_token) {
+          localStorage.setItem('accessToken', data.access_token);
+          window.location.href = 'dashboard.html'; // Authenticated page
+        }
+      });
+  } else {
+    // If no code or token, redirect to login
+    const loginUrl = `https://${domain}/login?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}`;
+    window.location.href = loginUrl;
+  }
+</script>
