@@ -1,138 +1,133 @@
-const token = localStorage.getItem("access_token");
+const BASE_API = "https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/prod";
+const markAttendanceUrl = `${BASE_API}/mark-attendance`;
+const getHistoryUrl = `${BASE_API}/get-attendance-history`;
+const submitCorrectionUrl = `${BASE_API}/submit-correction-request`;
+const getPresignedUrl = `${BASE_API}/get-presigned-url`;
 
-// Redirect to login if token is missing
+const token = localStorage.getItem("access_token");
 if (!token) {
-  alert("Session expired. Please log in again.");
+  alert("You must log in first.");
   window.location.href = "index.html";
 }
 
+// 📷 Webcam setup
 const video = document.getElementById("webcam");
 const captureBtn = document.getElementById("captureBtn");
-const statusMsg = document.getElementById("attendanceStatus");
-const imagePreview = document.getElementById("imagePreview");
+const previewImg = document.getElementById("capturedPreview");
+const statusText = document.getElementById("attendanceStatus");
+const captureTime = document.getElementById("captureTime");
+const previewSection = document.getElementById("previewSection");
 
-// Initialize webcam
-navigator.mediaDevices.getUserMedia({ video: true })
-  .then((stream) => {
+async function startWebcam() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
     video.srcObject = stream;
-  })
-  .catch((err) => {
-    console.error("Webcam error:", err);
-    statusMsg.textContent = "❌ Unable to access webcam.";
-  });
+  } catch (err) {
+    alert("Webcam access denied or not available.");
+    console.error(err);
+  }
+}
 
-// Click to capture and mark attendance
+// 📸 Capture image and upload
 captureBtn.addEventListener("click", async () => {
-  statusMsg.textContent = "📸 Capturing image...";
-  
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
-  canvas.getContext("2d").drawImage(video, 0, 0);
-  const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg"));
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const dataUrl = canvas.toDataURL("image/jpeg");
 
-  // Optional preview
-  imagePreview.src = URL.createObjectURL(blob);
-  imagePreview.style.display = "block";
+  const blob = await (await fetch(dataUrl)).blob();
 
   try {
-    // Step 1: Get presigned URL from backend
-    const presignResp = await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/getAttendanceImageUrl", {
-      method: "POST",
-      headers: {
-        Authorization: token,
-        "Content-Type": "application/json"
-      }
+    statusText.textContent = "Uploading image...";
+    // 1. Get pre-signed URL
+    const res = await fetch(getPresignedUrl, {
+      method: "GET",
+      headers: { Authorization: token }
     });
+    const { uploadUrl, fileKey } = await res.json();
 
-    const { uploadUrl, imageKey } = await presignResp.json();
-
-    if (!uploadUrl || !imageKey) throw new Error("Presigned URL fetch failed.");
-
-    // Step 2: Upload the image to S3 via presigned URL
-    const s3Resp = await fetch(uploadUrl, {
+    // 2. Upload image to S3
+    await fetch(uploadUrl, {
       method: "PUT",
-      body: blob,
-      headers: {
-        "Content-Type": "image/jpeg"
-      }
+      headers: { "Content-Type": "image/jpeg" },
+      body: blob
     });
 
-    if (!s3Resp.ok) throw new Error("Upload to S3 failed");
-
-    // Step 3: Call markAttendance with imageKey
-    const attendanceResp = await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/markAttendance", {
+    // 3. Call mark attendance API
+    statusText.textContent = "Checking face and logging attendance...";
+    const markRes = await fetch(markAttendanceUrl, {
       method: "POST",
       headers: {
         Authorization: token,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ imageKey })
+      body: JSON.stringify({ fileKey })
     });
 
-    const result = await attendanceResp.json();
-
-    if (attendanceResp.ok) {
-      statusMsg.textContent = "✅ Attendance marked successfully!";
-      loadAttendanceHistory(); // Refresh
+    const result = await markRes.json();
+    if (markRes.ok) {
+      const now = new Date();
+      previewImg.src = dataUrl;
+      previewSection.style.display = "block";
+      captureTime.textContent = `Captured at: ${now.toLocaleTimeString()}`;
+      statusText.textContent = `✅ Attendance marked: ${result.message || "Success"}`;
+      fetchAttendanceHistory();
     } else {
-      throw new Error(result.error || "Attendance failed");
+      statusText.textContent = `❌ Failed: ${result.error || result.message}`;
     }
-
   } catch (err) {
-    console.error("Attendance error:", err);
-    statusMsg.textContent = "❌ Error marking attendance.";
+    console.error(err);
+    statusText.textContent = "❌ Error occurred while submitting attendance.";
   }
 });
 
-// Load attendance history
-async function loadAttendanceHistory() {
-  const list = document.getElementById("attendanceHistory");
-  list.innerHTML = "<li>Loading...</li>";
+// 📜 Load Attendance History
+async function fetchAttendanceHistory() {
+  const ul = document.getElementById("attendanceHistory");
+  ul.innerHTML = "<li>Loading...</li>";
 
   try {
-    const resp = await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/getAttendanceHistory", {
+    const res = await fetch(getHistoryUrl, {
+      method: "GET",
       headers: { Authorization: token }
     });
 
-    const data = await resp.json();
+    const data = await res.json();
+    ul.innerHTML = "";
 
-    if (resp.ok && Array.isArray(data.history)) {
-      list.innerHTML = "";
-      data.history.forEach(entry => {
-        const li = document.createElement("li");
-        li.textContent = `${entry.date} - ${entry.status}`;
-        list.appendChild(li);
-      });
-    } else {
-      list.innerHTML = "<li>No history found.</li>";
+    if (!Array.isArray(data) || data.length === 0) {
+      ul.innerHTML = "<li>No attendance records found.</li>";
+      return;
     }
 
+    data.forEach(record => {
+      const li = document.createElement("li");
+      li.textContent = `${record.date} – ${record.status}`;
+      ul.appendChild(li);
+    });
   } catch (err) {
-    console.error("History error:", err);
-    list.innerHTML = "<li>⚠️ Error loading history.</li>";
+    console.error(err);
+    ul.innerHTML = "<li>Error loading history.</li>";
   }
 }
 
-// Weekly summary (placeholder for now)
-function displayWeeklySummary() {
-  const summary = document.getElementById("weeklySummary");
-  summary.innerHTML = "<em>Coming soon...</em>";
-}
-
-// Correction request
-const correctionForm = document.getElementById("correctionForm");
-const correctionStatus = document.getElementById("correctionStatus");
-
-correctionForm.addEventListener("submit", async (e) => {
+// 📝 Submit Correction Request
+document.getElementById("correctionForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const date = document.getElementById("correctionDate").value;
-  const reason = document.getElementById("correctionReason").value;
+  const reason = document.getElementById("correctionReason").value.trim();
+  const status = document.getElementById("correctionStatus");
 
-  correctionStatus.textContent = "📤 Submitting request...";
+  if (!date || !reason) {
+    status.textContent = "Please fill in both date and reason.";
+    return;
+  }
 
+  status.textContent = "Submitting request...";
   try {
-    const resp = await fetch("https://jprbceq0dk.execute-api.us-east-1.amazonaws.com/submitCorrectionRequest", {
+    const res = await fetch(submitCorrectionUrl, {
       method: "POST",
       headers: {
         Authorization: token,
@@ -141,28 +136,22 @@ correctionForm.addEventListener("submit", async (e) => {
       body: JSON.stringify({ date, reason })
     });
 
-    const result = await resp.json();
-
-    if (resp.ok) {
-      correctionStatus.textContent = "✅ Correction request submitted.";
-      correctionForm.reset();
+    const result = await res.json();
+    if (res.ok) {
+      status.textContent = "✅ Correction request submitted.";
+      document.getElementById("correctionForm").reset();
     } else {
-      throw new Error(result.error || "Submission failed.");
+      status.textContent = `❌ Failed: ${result.error || result.message}`;
     }
-
-  } catch (error) {
-    console.error("Correction error:", error);
-    correctionStatus.textContent = "❌ Failed to submit correction.";
+  } catch (err) {
+    console.error(err);
+    status.textContent = "❌ Error submitting correction request.";
   }
 });
 
-// Logout button
-const logoutBtn = document.getElementById("logoutBtn");
-logoutBtn.addEventListener("click", () => {
-  localStorage.removeItem("access_token");
-  window.location.href = "index.html";
-});
+// ⏳ Weekly Summary (Placeholder)
+document.getElementById("weeklySummary").textContent = "Feature coming soon...";
 
-// Load initial data
-loadAttendanceHistory();
-displayWeeklySummary();
+// ▶️ Start everything
+startWebcam();
+fetchAttendanceHistory();
