@@ -4,14 +4,13 @@ const markAttendanceUrl = `${BASE_API}/markAttendance`;
 const getHistoryUrl = `${BASE_API}/getAttendanceHistory`;
 const submitCorrectionUrl = `${BASE_API}/submitCorrectionRequest`;
 
-const accessToken = localStorage.getItem("access_token");
-const idToken = localStorage.getItem("id_token");
+const token = localStorage.getItem("access_token");
 
-if (!accessToken || isTokenExpired(accessToken)) {
-  localStorage.clear();
-  window.location.href =
-    "https://face-attendance-admin-auth.auth.us-east-1.amazoncognito.com/login?client_id=5r9fdn5ja386taccaljn7qdlm7&response_type=code&scope=email+openid&redirect_uri=https://cloudtechmadan.github.io/my-website-user/index.html";
+if (!token) {
+  alert("Login required");
+  window.location.href = "index.html";
 }
+
 
 const video = document.getElementById("video");
 const status = document.getElementById("status");
