@@ -1,69 +1,55 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html>
 <head>
+  <title>Face Attendance - User Login</title>
   <meta charset="UTF-8" />
-  <title>Face Attendance Login</title>
-  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h2>Logging in...</h2>
+  <h2>Logging you in...</h2>
 
   <script>
-    const clientId = "4vu39fr2kccnb6kdk67v8ejsak"; // User app client
-    const domain = "https://face-attendance-admin-auth.auth.us-east-1.amazoncognito.com";
+    const clientId = "4vu39fr2kccnb6kdk67v8ejsak";
     const redirectUri = "https://cloudtechmadan.github.io/my-website-user/index.html";
+    const domain = "https://face-attendance-admin-auth.auth.us-east-1.amazoncognito.com";
 
-    // Check if already logged in
+    async function exchangeCodeForToken(code) {
+      const body = new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: clientId,
+        code: code,
+        redirect_uri: redirectUri
+      });
+
+      const response = await fetch(`${domain}/oauth2/token`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: body.toString()
+      });
+
+      const data = await response.json();
+
+      if (data.access_token) {
+        localStorage.setItem("access_token", data.access_token);
+        localStorage.setItem("id_token", data.id_token);
+        localStorage.setItem("refresh_token", data.refresh_token);
+        window.location.href = "dashboard.html";
+      } else {
+        document.body.innerHTML = "<h2>Login failed. Please try again.</h2>";
+        console.error(data);
+      }
+    }
+
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get("code");
 
-    if (!code && localStorage.getItem("access_token")) {
-      // Already logged in, redirect to dashboard
-      window.location.href = "dashboard.html";
+    if (code) {
+      exchangeCodeForToken(code);
+    } else {
+      window.location.href = `${domain}/login?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=openid+email+profile`;
     }
-
-    async function exchangeCodeForToken() {
-      if (!code) {
-        // No code, redirect to login
-        window.location.href = `${domain}/login?client_id=${clientId}&response_type=code&scope=email+openid+profile&redirect_uri=${redirectUri}`;
-        return;
-      }
-
-      const tokenUrl = `${domain}/oauth2/token`;
-      const data = {
-        grant_type: "authorization_code",
-        client_id: clientId,
-        code,
-        redirect_uri: redirectUri
-      };
-
-      try {
-        const response = await fetch(tokenUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded"
-          },
-          body: new URLSearchParams(data)
-        });
-
-        const tokens = await response.json();
-
-        if (tokens.access_token) {
-          localStorage.setItem("access_token", tokens.access_token);
-          window.location.href = "dashboard.html";
-        } else {
-          document.body.innerHTML = "<p>Login failed. Redirecting...</p>";
-          setTimeout(() => {
-            window.location.href = `${domain}/login?client_id=${clientId}&response_type=code&scope=email+openid+profile&redirect_uri=${redirectUri}`;
-          }, 3000);
-        }
-      } catch (error) {
-        console.error("Token exchange error:", error);
-        document.body.innerHTML = "<p>Error during authentication. Please try again later.</p>";
-      }
-    }
-
-    exchangeCodeForToken();
   </script>
 </body>
 </html>
