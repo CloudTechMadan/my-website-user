@@ -1,71 +1,27 @@
+<!-- dashboard.html -->
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>Employee Attendance Dashboard</title>
-  <link rel="stylesheet" href="style.css">
+  <title>User Dashboard - Face Attendance</title>
+  <meta charset="UTF-8" />
   <style>
-    section { margin-bottom: 30px; }
-    video, canvas, img { max-width: 100%; border: 1px solid #ccc; border-radius: 8px; }
-    button { padding: 8px 16px; margin-top: 10px; }
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    video { border: 1px solid #ccc; width: 300px; height: 225px; }
+    #status { margin-top: 10px; font-weight: bold; }
+    button { margin: 5px; }
+    pre { background: #f5f5f5; padding: 10px; border-radius: 5px; }
   </style>
 </head>
 <body>
-  <h1>Welcome to Your Attendance Dashboard</h1>
-
-  <!-- Webcam Capture Section -->
-  <section id="webcamSection">
-    <h2>1. Mark Attendance</h2>
-    <video id="webcam" autoplay playsinline></video><br />
-    <button id="captureBtn">📸 Mark Attendance</button>
-    <p id="attendanceStatus"></p>
-    <div id="previewSection" style="display: none;">
-      <h4>Captured Image:</h4>
-      <img id="capturedPreview" alt="Captured image preview" />
-      <p id="captureTime"></p>
-    </div>
-  </section>
-
-  <!-- Attendance History -->
-  <section id="historySection">
-    <h2>2. My Attendance History</h2>
-    <ul id="attendanceHistory">
-      <li>Loading...</li>
-    </ul>
-  </section>
-
-  <!-- Weekly Summary -->
-  <section id="summarySection">
-    <h2>3. Weekly Summary</h2>
-    <div id="weeklySummary">Coming soon...</div>
-  </section>
-
-  <!-- Correction Request -->
-  <section id="correctionSection">
-    <h2>4. Request Correction</h2>
-    <form id="correctionForm">
-      <label for="correctionDate">Date:</label>
-      <input type="date" id="correctionDate" required><br><br>
-
-      <label for="correctionReason">Reason:</label><br>
-      <textarea id="correctionReason" rows="4" cols="40" required></textarea><br><br>
-
-      <button type="submit">Submit Request</button>
-    </form>
-    <p id="correctionStatus"></p>
-  </section>
-
-  <!-- Logout Button -->
-  <section>
-    <button onclick="logout()">🚪 Logout</button>
-  </section>
+  <h1>Welcome to Your Dashboard</h1>
+  <video id="video" autoplay></video><br>
+  <button id="markAttendanceBtn">Mark Attendance</button>
+  <button id="viewHistoryBtn">My Attendance History</button>
+  <button id="requestCorrectionBtn">Request Correction</button>
+  <button id="logoutBtn">Logout</button>
+  <div id="status"></div>
+  <pre id="historyOutput"></pre>
 
   <script src="dashboard.js"></script>
-  <script>
-    function logout() {
-      localStorage.removeItem("access_token");
-      window.location.href = "index.html";
-    }
-  </script>
 </body>
 </html>
